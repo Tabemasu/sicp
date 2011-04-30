@@ -1,0 +1,264 @@
+#lang racket
+
+(require "1-2.rkt")
+
+;Exercise 2.17
+(define (my-last-pair list)
+  (let ([next (cdr list)])
+    (if (null? next)
+      list
+      (my-last-pair next))))
+
+;Exercise 2.18
+(define (my-reverse items)
+  (if (null? items)
+      null
+      (append (my-reverse (cdr items)) (list (car items)))))
+
+;Exericse 2.19
+(define (count-change amount)
+  (define (cc amount coin-values)
+  (cond ((= amount 0) 1)
+        ((or (< amount 0) (no-more? coin-values)) 0)
+        (else (+ (cc amount
+                     (except-first-denomination coin-values))
+                 (cc (- amount
+                        (first-denomination coin-values))
+                     coin-values)))))
+  (define (first-denomination coin-values) (car coin-values))
+  (define (except-first-denomination coin-values) (cdr coin-values))
+  (define (no-more? coin-values) (null? coin-values))
+  (let ([us-coins (list 1 10 5 25 50)])
+    (cc amount us-coins)))
+
+;Exercise 2.20
+(define (same-parity i . l)
+  (define (helper i l)
+    (cond ((null? l) null)
+          ((not (odd? (- (car l) i)))
+           (cons (car l) (helper i (cdr l))))
+          (else (helper i (cdr l)))))
+  (cons i (helper i l)))
+
+;Exercise 2.21
+(define (square-list1 items)
+  (if (null? items)
+      null
+      (cons (square (car items)) (square-list1 (cdr items)))))
+(define (square-list2 items)
+  (map square items))
+
+;Exercise 2.23
+(define (my-for-each f list)
+  (cond [(null? list) #t]
+        [else 
+         (f (car list))
+         (my-for-each f (cdr list))]))
+
+(define (count-leaves-old x)
+  (cond ((null? x) 0)
+        ((not (pair? x)) 1)
+        (else (+ (count-leaves (car x))
+                 (count-leaves (cdr x))))))
+
+;Exercise 2.27
+(define (deep-reverse items)
+  (cond [(null? items) null]
+        [(pair? (car items)) (append (deep-reverse (cdr items))
+                                     (list (deep-reverse (car items))))]
+        [else (append (deep-reverse (cdr items))
+                      (list (car items)))]))
+
+;Exercise 2.28
+(define (fringe tree)
+  (cond [(null? tree) '()]
+        [(pair? tree)
+         (append (fringe (car tree)) (fringe (cdr tree)))]
+        [else (list list)]))
+
+;Exercise 2.29
+(define (make-mobile left right)
+  (cons left right))
+(define (make-branch length structure)
+  (cons length structure))
+(define (left-branch mobile) (car mobile))
+(define (right-branch mobile) (cdr mobile))
+(define (branch-length branch) (car branch))
+(define (branch-structure branch) (cdr branch))
+(define (total-weight mobile)
+  (cond [(null? mobile) 0]
+        [(pair? mobile)
+         (+ (total-weight (branch-structure (left-branch mobile)))
+            (total-weight (branch-structure (right-branch mobile))))]
+        [else mobile]))
+(define (balanced? mobile)
+  (cond [(null? mobile) #t]
+        [(pair? mobile)
+         (let* ([left (left-branch mobile)]
+                [right (right-branch mobile)]
+                [left-struct (branch-structure left)]
+                [right-struct (branch-structure right)])
+           (and (= (* (branch-length left) 
+                      (total-weight left-struct))
+                   (* (branch-length right)
+                      (total-weight right-struct)))
+                (balanced? left-struct)
+                (balanced? right-struct)))]
+        [else #t]))
+
+;Exercise 2.30
+(define (square-tree1 tree)
+  (cond [(null? tree) '()]
+        [(pair? tree) (cons (square-tree1 (car tree))
+                            (square-tree1 (cdr tree)))]
+        [else (square tree)]))
+(define (square-tree2 tree)
+  (map (lambda (element)
+         (if (pair? element)
+             (square-tree2 element)
+             (square element))) tree))
+
+;Exercise 2.31
+(define (tree-map f tree)
+  (map (lambda (element)
+         (if (pair? element)
+             (tree-map f element)
+             (f element))) tree))
+
+;Exercise 2.32
+(define (subsets s)
+  (if (null? s)
+      (list null)
+      (let ((rest (subsets (cdr s))))
+        (append rest (map (lambda (e) (cons (car s) e)) rest)))))
+
+(define (my-filter predicate sequence)
+  (cond [(null? sequence) null]
+        [(predicate (car sequence))
+         (cons (car sequence)
+               (my-filter predicate (cdr sequence)))]
+        [else (my-filter predicate (cdr sequence))]))
+(define (accumulate op initial sequence)
+  (if (null? sequence)
+      initial
+      (op (car sequence)
+          (accumulate op initial (cdr sequence)))))
+(define (enumerate-interval low high)
+  (if (> low high)
+      null
+      (cons low (enumerate-interval (+ low 1) high))))
+(define (enumerate-tree tree)
+  (cond [(null? tree) null]
+        [(not (pair? tree)) (list tree)]
+        [else (append (enumerate-tree (car tree))
+                      (enumerate-tree (cdr tree)))]))
+(define (sum-odd-squares tree)
+  (accumulate + 0 (map square (my-filter odd? (enumerate-tree tree)))))
+(define (even-fibs n)
+  (accumulate cons null (my-filter even?
+                                   (map fast-fib (enumerate-interval 1 n)))))
+
+;Exercise 2.33
+(define (my-map p sequence)
+  (accumulate (lambda (x y) (cons (p x) y)) null sequence))
+(define (my-append seq1 seq2)
+  (accumulate cons seq2 seq1))
+(define (my-length sequence)
+  (accumulate (lambda (x y) (+ 1 y)) 0 sequence))
+
+;Exercise 2.34
+(define (horner-eval x coefficient-sequence)
+  (accumulate (lambda (this-coeff higher-terms)
+                (+ this-coeff (* x higher-terms)))
+              0
+              coefficient-sequence))
+
+;Exercise 2.35
+(define (count-leaves t)
+  (accumulate + 0 (map (lambda (e)
+                         (if (not (pair? e))
+                             1
+                             (count-leaves e))) t)))
+
+;Exercise 2.36
+(define (accumulate-n op init seqs)
+  (if (null? (car seqs))
+      null
+      (cons (accumulate op init (map car seqs))
+            (accumulate-n op init (map cdr seqs)))))
+
+;Exercise 2.37
+(define (dot-product v w)
+  (accumulate + 0 (map * v w)))
+(define (matrix-*-vector m v)
+  (map (lambda (w) (dot-product w v)) m))
+(define (transpose mat)
+  (accumulate-n cons null mat))
+(define (matrix-*-matrix m n)
+  (let ((cols (transpose n)))
+    (map (lambda (w) (matrix-*-vector cols w)) m)))
+
+;Exercise 2.38
+(define (fold-left op initial sequence)
+  (define (iter result rest)
+    (if (null? rest)
+        result
+        (iter (op result (car rest))
+              (cdr rest))))
+  (iter initial sequence))
+
+;Exercise 2.39
+(define (reverse-right sequence)
+  (accumulate (lambda (x y) (append y (list x))) null sequence))
+(define (reverse-left sequence)
+  (fold-left (lambda (x y) (append (list y) x)) null sequence))
+;end exercise
+
+(define (flatmap proc seq)
+  (accumulate append null (map proc seq)))
+(define (prime-sum? pair)
+  (prime? (+ (car pair) (cadr pair))))
+(define (make-pair-sum pair)
+  (list (car pair) (cadr pair) (+ (car pair) (cadr pair))))
+(define (prime-sum-pairs-old n)
+  (map make-pair-sum
+       (filter prime-sum?
+               (flatmap 
+                (lambda (i)
+                  (map (lambda (j) (list i j))
+                       (enumerate-interval 1 (- i 1))))
+                (enumerate-interval 1 n)))))
+(define (permutations s)
+  (if (null? s)
+      (list null)
+      (flatmap (lambda (x)
+                 (map (lambda (p) (cons x p))
+                      (permutations (remove x s))))
+               s)))
+
+;Exercise 2.40
+(define (unique-pairs n)
+  (flatmap (lambda (i)
+             (map (lambda (j) (list i j))
+                  (enumerate-interval 1 (- i 1))))
+           (enumerate-interval 1 n)))
+(define (prime-sum-pairs n)
+  (map make-pair-sum
+       (filter prime-sum?
+               (unique-pairs n))))
+
+;Exercise 2.41
+(define (ordered-triple-sum n s)
+  (filter (lambda (triple)
+            (triple-sum triple s))
+          (unique-triples n)))
+(define (unique-triples n)
+  (flatmap (lambda (i)
+             (flatmap (lambda (j)
+                        (map (lambda (k) (list i j k))
+                             (enumerate-interval 1 (- j 1))))
+                      (enumerate-interval 1 (- i 1))))
+           (enumerate-interval 1 n)))
+(define (triple-sum triple s)
+  (= (+ (car triple) (cadr triple) (caddr triple)) s))
+          
