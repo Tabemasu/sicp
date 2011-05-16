@@ -11,6 +11,10 @@
          (make-procedure (lambda-parameters exp)
                          (lambda-body exp)
                          env))
+        ((let? exp)
+         (my-eval (let->combination exp) env))
+        ((let*? exp)
+         (my-eval (let*->nested-lets exp) env))
         ((begin? exp)
          (eval-sequence (begin-actions exp) env))
         ((cond? exp) (my-eval (cond->if exp) env))
@@ -136,19 +140,6 @@
 (define (cond-actions clause) (cdr clause))
 (define (cond->if exp)
   (expand-clauses (cond-clauses exp)))
-(define (expand-clauses clauses)
-  (if (null? clauses)
-      'false
-      (let ((first (car clauses))
-            (rest (cdr clauses)))
-        (if (cond-else-clause? first)
-            (if (null? rest)
-                (sequence->exp (cond-actions first))
-                (error "ELSE clause isn't last -- COND->IF"
-                       clauses))
-            (make-if (cond-predicate first)
-                     (sequence->exp (cond-actions first))
-                     (expand-clauses rest))))))
 
 ;Exercise 4.2
 ;(define (application? exp) (tagged-list? exp 'call))
@@ -200,6 +191,7 @@
 (define (or-exps exp) (cadr exp))
 ;(define (eval-or exp env)
 ;  (short-circut exp env true?))
+;Is there a good abstraction for these two procedures?
 (define (and->if seq)
   (if ((null? seq) 
        'true
@@ -218,8 +210,53 @@
          (make-if first
                   first
                   (or->if rest))))))
-;Is there a good abstraction for these two procedures?
 (define (eval-and exp env)
   (my-eval (and->if exp) env))
 (define (eval-or exp env)
   (my-eval (or->if exp) env))
+
+;Exercise 4.5
+(define (cond-test clause) (car clause))
+(define (cond-recipient clause) (caddr clause))
+(define (cond-=>-clause? clause)
+  (eq? (cadr clause) '=>))
+(define (expand-clauses clauses)
+  (if (null? clauses)
+      'false
+      (let ((first (car clauses))
+            (rest (cdr clauses)))
+        (cond ((cond-else-clause? first)
+               (if (null? rest)
+                   (sequence->exp (cond-actions first))
+                   (error "ELSE clause isn't last -- COND->IF"
+                          clauses)))
+              ((cond-=>-clause? first)
+               (make-if (cond-test first)
+                        (list (cond-recipient first) (cond-test first))
+                        (expand-clauses rest)))
+              (else (make-if (cond-predicate first)
+                     (sequence->exp (cond-actions first))
+                     (expand-clauses rest)))))))
+;Exercise 4.6
+(define (let? exp) (tagged-exp? exp 'let))
+(define (let-params exp) (map car (cadr exp)))
+(define (let-args exp) (map cadr (cadr exp)))
+(define (let-body exp) (cddr exp))
+(define (let->combination exp)
+  (cons (make-lambda (let-params exp) (let-body exp)) 
+          (let-args exp)))
+
+;Exercise 4.7
+(define (let*? exp) (tagged-exp? exp 'let*))
+(define (let*-par-val-pairs exp) (cadr exp))
+(define (let*-body exp) (caddr exp))
+(define (make-let pv-pairs body)
+  (cons 'let (cons pv-pairs body)))
+(define (let*->nested-lets exp)
+    (expand-let* (let*-par-val-pairs exp)
+                 (let*-body exp)))
+(define (expand-let* pv-pairs body)
+  (if (null? pv-pairs)
+      body
+      (make-let (list (first pv-pairs))
+                (list (expand-let* (rest pv-pairs) body)))))
