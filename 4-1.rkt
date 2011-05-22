@@ -12,9 +12,9 @@
                          (lambda-body exp)
                          env))
         ((let? exp)
-         (my-eval (let->combination exp) env))
+         (my-eval (let->combination exp env))
         ((let*? exp)
-         (my-eval (let*->nested-lets exp) env))
+         (my-eval (let*->nested-lets exp env))
         ((begin? exp)
          (eval-sequence (begin-actions exp) env))
         ((cond? exp) (my-eval (cond->if exp) env))
@@ -238,17 +238,17 @@
                      (sequence->exp (cond-actions first))
                      (expand-clauses rest)))))))
 ;Exercise 4.6
-(define (let? exp) (tagged-exp? exp 'let))
+(define (let? exp) (tagged-list? exp 'let))
 (define (let-params exp) (map car (cadr exp)))
-(define (let-args exp) (map cadr (cadr exp)))
-(define (let-body exp) (cddr exp))
-(define (let->combination exp)
-  (cons (make-lambda (let-params exp) (let-body exp)) 
-          (let-args exp)))
+(define (let-vals exp) (map cadr (cadr exp)))
+(define (let-body exp) (cdr exp))
+;(define (let->combination exp)
+;  (cons (make-lambda (let-params exp) (let-body exp)) 
+;          (let-vals exp)))
 
 ;Exercise 4.7
-(define (let*? exp) (tagged-exp? exp 'let*))
-(define (let*-par-val-pairs exp) (cadr exp))
+(define (let*? exp) (tagged-list? exp 'let*))
+(define (let*-par-val-pairs exp) (cdar exp))
 (define (let*-body exp) (caddr exp))
 (define (make-let pv-pairs body)
   (cons 'let (cons pv-pairs body)))
@@ -260,3 +260,44 @@
       body
       (make-let (list (first pv-pairs))
                 (list (expand-let* (rest pv-pairs) body)))))
+
+;Exercise 4.8
+(define (make-func-definition name params body)
+  (cons 'define (cons (append (list name) params) body)))
+(define (let-name exp) (cadr exp))
+(define (let-named-params exp) (let-params (cdr exp)))
+(define (let-named-vals exp) (let-vals (cdr exp)))
+(define (let-named-body exp) (let-body (cdr exp)))
+(define (named-let? exp)
+  (symbol? (cadr exp)))
+(define (let->combination exp)
+  (if (named-let? exp)
+      (let ((name (let-name exp))
+            (params (let-named-params exp))
+            (vals (let-named-vals exp))
+            (body (let-named-body exp)))
+        (sequence->exp 
+         (list (make-func-definition name params body)
+               (append name vals))))          
+      (cons (make-lambda (let-params exp) (let-body exp)) 
+            (let-vals exp))))
+
+;Exercise 4.9
+;While usage: (while <condition> <body>)
+(define (while? exp) (tagged-list? exp 'while))
+(define (while-condition exp) (car exp))
+(define (while-body exp) (cdr exp))
+(define (eval-while exp)
+  (while->combination (cdr exp)))
+;Add eval-while to my-eval
+(define (while->combination exp)
+  (sequence->exp
+   (list (make-func-definition 
+          'while-func 
+          '() 
+          (list (make-if (while-condition exp)
+                         (sequence->exp 
+                          (list (while-body exp)
+                                '(while-func)))
+                         'false)))
+         '(while-func))))
